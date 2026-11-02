@@ -208,12 +208,12 @@
                                 <i data-lucide="sliders" class="w-5 h-5 text-cyan-400"></i>
                                 Sensitivitas Kamera PID
                             </span>
-                            <span class="text-xs text-amber-300 font-semibold">Jarak 1.5 - 3 Meter</span>
+                            <span id="sensitivity-label" class="text-xs text-amber-300 font-semibold">Sangat Peka (55)</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="text-xs text-slate-400">Dekat</span>
-                            <input id="sensitivity-slider" type="range" min="15" max="65" value="42" class="w-full h-3 accent-amber-400 cursor-pointer">
-                            <span class="text-xs text-slate-400">Jauh</span>
+                            <span class="text-xs text-slate-400">Normal</span>
+                            <input id="sensitivity-slider" oninput="updateSensitivityLabel(this.value)" type="range" min="20" max="75" value="55" class="w-full h-3 accent-amber-400 cursor-pointer">
+                            <span class="text-xs text-slate-400">Super Peka</span>
                         </div>
                     </div>
                 </div>
@@ -234,9 +234,10 @@
             <!-- Kanan: Panel Pratinjau Kamera & Panduan Aktivasi PID -->
             <div class="w-full lg:w-[420px] bg-gradient-to-b from-indigo-950 to-slate-900 border-2 border-indigo-500/40 rounded-3xl p-5 flex flex-col items-center text-center space-y-3.5 shadow-inner shrink-0">
                 
-                <!-- Layar Kecil Pratinjau Kamera di Menu Utama -->
+                <!-- Layar Kecil Pratinjau Kamera + Tes Sensor di Menu Utama -->
                 <div class="w-full h-48 bg-slate-950 rounded-2xl border-2 border-indigo-400/40 overflow-hidden relative flex flex-col items-center justify-center">
                     <video id="menu-preview-video" autoplay playsinline muted class="hidden w-full h-full object-cover mirror-feed"></video>
+                    <canvas id="menu-motion-canvas" class="hidden absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80"></canvas>
                     
                     <div id="menu-cam-placeholder" class="flex flex-col items-center justify-center p-4 space-y-2">
                         <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-2xl animate-bounce">
@@ -250,7 +251,29 @@
 
                     <div id="menu-cam-live-badge" class="hidden absolute top-2.5 left-2.5 bg-emerald-600/90 text-white text-xs font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 shadow">
                         <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
-                        KAMERA AKTIF
+                        SENSOR AKTIF - COBA LAMBAIKAN TANGAN!
+                    </div>
+
+                    <!-- Indikator Tes Sensor Kiri & Kanan di Menu -->
+                    <div id="menu-sensor-bars" class="hidden absolute bottom-2 inset-x-2 grid grid-cols-2 gap-2 pointer-events-none">
+                        <div class="bg-slate-950/85 border border-cyan-400/50 rounded-lg p-1.5 text-left">
+                            <div class="flex justify-between text-[10px] font-bold text-cyan-300 mb-0.5">
+                                <span>👋 Sensor Kiri (A)</span>
+                                <span id="menu-meter-left-text">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div id="menu-meter-left-bar" class="bg-cyan-400 h-full transition-all duration-75" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="bg-slate-950/85 border border-amber-400/50 rounded-lg p-1.5 text-left">
+                            <div class="flex justify-between text-[10px] font-bold text-amber-300 mb-0.5">
+                                <span>👋 Sensor Kanan (B)</span>
+                                <span id="menu-meter-right-text">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div id="menu-meter-right-bar" class="bg-amber-400 h-full transition-all duration-75" style="width: 0%"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -716,7 +739,18 @@
         // ==========================================
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            // Jalankan loop sensor terus-menerus agar bisa dites di menu maupun di dalam game
+            requestAnimationFrame(processMotionLoop);
         });
+
+        function updateSensitivityLabel(val) {
+            const label = document.getElementById('sensitivity-label');
+            if (!label) return;
+            const num = parseInt(val, 10);
+            if (num >= 60) label.textContent = `Super Peka (${num})`;
+            else if (num >= 45) label.textContent = `Sangat Peka (${num})`;
+            else label.textContent = `Normal (${num})`;
+        }
 
         function initAudio() {
             if (!synth && typeof Tone !== 'undefined') {
@@ -960,10 +994,15 @@
                     await menuVideo.play();
                     menuVideo.classList.remove('hidden');
                 }
+                const menuCanvas = document.getElementById('menu-motion-canvas');
+                const menuBars = document.getElementById('menu-sensor-bars');
+                if (menuCanvas) menuCanvas.classList.remove('hidden');
+                if (menuBars) menuBars.classList.remove('hidden');
                 if (menuPlaceholder) menuPlaceholder.classList.add('hidden');
                 if (menuLiveBadge) menuLiveBadge.classList.remove('hidden');
 
                 isCameraReady = true;
+                prevFrameData = null;
                 video.classList.remove('hidden');
                 noCamBg.classList.add('hidden');
                 noCamBg.classList.remove('flex');
@@ -995,20 +1034,24 @@
         }
 
         function processMotionLoop() {
-            if (!isGameRunning) return;
-
             const video = document.getElementById('webcam-video');
+            const menuVideo = document.getElementById('menu-preview-video');
+            const activeVideo = (isGameRunning && video && video.srcObject) ? video : menuVideo;
+
             const procCanvas = document.getElementById('hidden-proc-canvas');
             const procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
 
-            const overlayCanvas = document.getElementById('motion-overlay-canvas');
-            const overlayCtx = overlayCanvas.getContext('2d');
+            const overlayCanvas = isGameRunning
+                ? document.getElementById('motion-overlay-canvas')
+                : document.getElementById('menu-motion-canvas');
+            const overlayCtx = overlayCanvas ? overlayCanvas.getContext('2d') : null;
 
-            if (isCameraReady && isSensorEnabled && !isQuestionLocked && video.readyState === video.HAVE_ENOUGH_DATA) {
+            // Gunakan readyState >= 2 (HAVE_CURRENT_DATA) dan videoWidth > 0 agar berjalan di semua webcam/PID
+            if (isCameraReady && isSensorEnabled && activeVideo && activeVideo.readyState >= 2 && activeVideo.videoWidth > 0) {
                 const w = procCanvas.width;  // 160
                 const h = procCanvas.height; // 120
 
-                if (overlayCanvas.width !== w) {
+                if (overlayCanvas && overlayCanvas.width !== w) {
                     overlayCanvas.width = w;
                     overlayCanvas.height = h;
                 }
@@ -1016,30 +1059,31 @@
                 // Gambar frame video secara mirror (agar kiri layar = tangan kiri pengguna di bayangan cermin)
                 procCtx.save();
                 procCtx.scale(-1, 1);
-                procCtx.drawImage(video, -w, 0, w, h);
+                procCtx.drawImage(activeVideo, -w, 0, w, h);
                 procCtx.restore();
 
                 const currentFrame = procCtx.getImageData(0, 0, w, h);
                 const currData = currentFrame.data;
 
-                overlayCtx.clearRect(0, 0, w, h);
+                if (overlayCtx) {
+                    overlayCtx.clearRect(0, 0, w, h);
+                }
 
-                if (prevFrameData) {
+                if (prevFrameData && prevFrameData.length === currData.length) {
                     let leftMotionPixels = 0;
                     let rightMotionPixels = 0;
 
-                    // Ambil nilai sensitivitas dari slider (default 35)
-                    const sliderVal = parseInt(document.getElementById('sensitivity-slider').value, 10) || 35;
-                    // Semakin tinggi slider, semakin kecil ambang batas perbedaan warna yang dibutuhkan
-                    const diffThreshold = 85 - sliderVal;
+                    // Ambil nilai sensitivitas dari slider (default 55)
+                    const sliderEl = document.getElementById('sensitivity-slider');
+                    const sliderVal = sliderEl ? (parseInt(sliderEl.value, 10) || 55) : 55;
+                    // Semakin tinggi slider, semakin kecil perubahan warna piksel yang sudah dianggap gerakan
+                    const diffThreshold = Math.max(8, 85 - sliderVal);
 
-                    // Definisi Area Kotak Kiri (A) dan Kanan (B) dalam koordinat 160x120
-                    // Zona Kiri: X dari 6 sampai 68, Y dari 20 sampai 105
-                    // Zona Kanan: X dari 92 sampai 154, Y dari 20 sampai 105
-                    for (let y = 20; y < 105; y += 2) {
-                        for (let x = 6; x < 154; x += 2) {
-                            // Lewati area tengah tempat kepala/badan diam berada (X: 68 s/d 92)
-                            if (x > 68 && x < 92) continue;
+                    // Area deteksi diperluas: Kiri (X: 2 s/d 74), Kanan (X: 86 s/d 158), Y: 8 s/d 114
+                    for (let y = 8; y < 114; y += 2) {
+                        for (let x = 2; x < 158; x += 2) {
+                            // Lewati sedikit jalur tengah tempat kepala diam berada (X: 74 s/d 86)
+                            if (x > 74 && x < 86) continue;
 
                             const idx = (y * w + x) * 4;
                             const rDiff = Math.abs(currData[idx] - prevFrameData[idx]);
@@ -1049,42 +1093,65 @@
                             const avgDiff = (rDiff + gDiff + bDiff) / 3;
 
                             if (avgDiff > diffThreshold) {
-                                if (x <= 68) {
+                                if (x <= 74) {
                                     leftMotionPixels++;
-                                    overlayCtx.fillStyle = 'rgba(34, 211, 238, 0.75)'; // Kilau Biru Cyan
-                                    overlayCtx.fillRect(x, y, 2, 2);
-                                } else if (x >= 92) {
+                                    if (overlayCtx) {
+                                        overlayCtx.fillStyle = 'rgba(34, 211, 238, 0.85)'; // Kilau Biru Cyan
+                                        overlayCtx.fillRect(x, y, 3, 3);
+                                    }
+                                } else if (x >= 86) {
                                     rightMotionPixels++;
-                                    overlayCtx.fillStyle = 'rgba(251, 191, 36, 0.75)'; // Kilau Kuning Amber
-                                    overlayCtx.fillRect(x, y, 2, 2);
+                                    if (overlayCtx) {
+                                        overlayCtx.fillStyle = 'rgba(251, 191, 36, 0.85)'; // Kilau Kuning Amber
+                                        overlayCtx.fillRect(x, y, 3, 3);
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Hitung apakah gerakan cukup signifikan di salah satu zona
-                    // Dioptimalkan untuk jarak berdiri siswa di depan PID (1.5 - 3 meter)
-                    const activationThreshold = 24;
-
-                    if (leftMotionPixels > activationThreshold && leftMotionPixels > rightMotionPixels * 1.15) {
-                        holdProgressLeft = Math.min(100, holdProgressLeft + 4.8);
-                        holdProgressRight = Math.max(0, holdProgressRight - 3);
-                    } else if (rightMotionPixels > activationThreshold && rightMotionPixels > leftMotionPixels * 1.15) {
-                        holdProgressRight = Math.min(100, holdProgressRight + 4.8);
-                        holdProgressLeft = Math.max(0, holdProgressLeft - 3);
-                    } else {
-                        // Turunkan perlahan jika tidak ada gerakan tangan
-                        holdProgressLeft = Math.max(0, holdProgressLeft - 2.0);
-                        holdProgressRight = Math.max(0, holdProgressRight - 2.0);
+                    // Update indikator meteran tes di Menu Utama
+                    const menuLeftBar = document.getElementById('menu-meter-left-bar');
+                    const menuRightBar = document.getElementById('menu-meter-right-bar');
+                    const menuLeftText = document.getElementById('menu-meter-left-text');
+                    const menuRightText = document.getElementById('menu-meter-right-text');
+                    if (menuLeftBar && menuRightBar) {
+                        const lTestPct = Math.min(100, Math.round((leftMotionPixels / 25) * 100));
+                        const rTestPct = Math.min(100, Math.round((rightMotionPixels / 25) * 100));
+                        menuLeftBar.style.width = `${lTestPct}%`;
+                        menuRightBar.style.width = `${rTestPct}%`;
+                        menuLeftText.textContent = `${lTestPct}%`;
+                        menuRightText.textContent = `${rTestPct}%`;
                     }
 
-                    updateZonesUI();
+                    // Jika sedang di dalam kuis dan soal belum dikunci
+                    if (isGameRunning && !isQuestionLocked) {
+                        // Ambang piksel dibuat jauh lebih responsif (cukup 8 titik perubahan gerakan)
+                        const activationThreshold = 8;
 
-                    // Jika salah satu mencapai 100%, kunci jawaban!
-                    if (holdProgressLeft >= 100) {
-                        submitAnswer(0);
-                    } else if (holdProgressRight >= 100) {
-                        submitAnswer(1);
+                        if (leftMotionPixels > activationThreshold && leftMotionPixels >= rightMotionPixels * 1.1) {
+                            // Kecepatan pengisian bar dipercepat agar anak tidak pegal melambaikan tangan
+                            const boost = Math.min(9.5, 4.5 + (leftMotionPixels / 15));
+                            holdProgressLeft = Math.min(100, holdProgressLeft + boost);
+                            holdProgressRight = Math.max(0, holdProgressRight - 2.5);
+                        } else if (rightMotionPixels > activationThreshold && rightMotionPixels >= leftMotionPixels * 1.1) {
+                            const boost = Math.min(9.5, 4.5 + (rightMotionPixels / 15));
+                            holdProgressRight = Math.min(100, holdProgressRight + boost);
+                            holdProgressLeft = Math.max(0, holdProgressLeft - 2.5);
+                        } else {
+                            // Turunkan perlahan jika berhenti melambaikan tangan
+                            holdProgressLeft = Math.max(0, holdProgressLeft - 1.5);
+                            holdProgressRight = Math.max(0, holdProgressRight - 1.5);
+                        }
+
+                        updateZonesUI();
+
+                        // Jika salah satu mencapai 100%, kunci jawaban!
+                        if (holdProgressLeft >= 100) {
+                            submitAnswer(0);
+                        } else if (holdProgressRight >= 100) {
+                            submitAnswer(1);
+                        }
                     }
                 }
 
@@ -1173,10 +1240,13 @@
             updateHUD();
             loadCurrentQuestion();
 
-            // Nyalakan kamera dan mulai sensor gerak
+            // Pastikan kamera dan video dalam game menyala dan terhubung
             await setupCamera();
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            processMotionLoop();
+            const gameVideo = document.getElementById('webcam-video');
+            if (webcamStream && gameVideo) {
+                gameVideo.srcObject = webcamStream;
+                gameVideo.play().catch(() => {});
+            }
         }
 
         function updateHUD() {
@@ -1313,7 +1383,6 @@
 
         function endGame(completedAll) {
             isGameRunning = false;
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
             playSoundEffect('win');
 
@@ -1350,7 +1419,6 @@
         function returnToMenu() {
             clearAutoNextTimers();
             isGameRunning = false;
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
             document.getElementById('screen-game').classList.add('hidden');
             document.getElementById('screen-game').classList.remove('flex');
