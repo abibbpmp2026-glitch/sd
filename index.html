@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuis Gerak Pintar SD - Edisi Papan Interaktif Digital (PID)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Fredoka untuk kesan ceria & ramah anak -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tone.js untuk Efek Suara Edukatif -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            overflow: hidden;
+            background: radial-gradient(circle at top left, #312e81, #090d16);
+        }
+
+        /* Animasi Mengambang */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-6px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Animasi Denyut saat Terdeteksi Gerakan */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.8); }
+            70% { transform: scale(1.02); box-shadow: 0 0 0 24px rgba(250, 204, 21, 0); }
+            100% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+        }
+        .active-zone {
+            animation: pulse-ring 0.9s infinite;
+        }
+
+        /* Mirror Video & Canvas */
+        .mirror-feed {
+            transform: scaleX(-1);
+        }
+
+        /* Custom Scrollbar untuk mode layar kecil */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6366f1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen text-white flex flex-col justify-between p-2 sm:p-4 overflow-hidden">
+
+    <!-- HEADER / NAVBAR (OPTIMAL UNTUK PID 65" - 86") -->
+    <header class="w-full max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3 bg-slate-900/90 backdrop-blur-md border-2 border-indigo-500/40 rounded-3xl p-3 sm:px-6 shadow-2xl z-20 shrink-0">
+        <div class="flex items-center gap-3 sm:gap-4">
+            <div class="bg-gradient-to-br from-amber-400 to-orange-500 p-3 rounded-2xl shadow-lg flex items-center justify-center">
+                <i data-lucide="monitor-play" class="w-7 h-7 sm:w-8 sm:h-8 text-slate-950 stroke-[2.5]"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl sm:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-amber-300 via-yellow-200 to-cyan-300 bg-clip-text text-transparent">
+                        Kuis Gerak Pintar SD
+                    </h1>
+                    <span class="hidden md:inline-flex items-center gap-1 bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                        MODE PID KELAS
+                    </span>
+                </div>
+                <p class="text-xs sm:text-sm text-indigo-200 hidden sm:block">Papan Interaktif Digital • Sensor Gerak Kamera & Layar Sentuh Kelas 4-6 SD</p>
+            </div>
+        </div>
+
+        <!-- Status Permainan Ukuran Besar (Mudah dilihat dari belakang kelas) -->
+        <div id="hud-stats" class="hidden items-center gap-4 sm:gap-8 bg-slate-800/95 px-5 py-2.5 rounded-2xl border-2 border-slate-600 shadow-inner">
+            <!-- Giliran Siswa / Tim -->
+            <div class="hidden xl:flex items-center gap-2 bg-indigo-500/20 border border-indigo-400/40 px-3 py-1 rounded-xl">
+                <i data-lucide="users" class="w-5 h-5 text-indigo-300"></i>
+                <span id="player-turn-badge" class="text-sm font-bold text-indigo-200">Siswa 1</span>
+            </div>
+            <!-- Nyawa -->
+            <div class="flex items-center gap-1.5" title="Kesempatan">
+                <span class="text-sm text-slate-300 font-semibold mr-1 hidden md:inline">Nyawa:</span>
+                <div id="lives-container" class="flex items-center gap-1.5 text-rose-500">
+                    <!-- Diisi via JS -->
+                </div>
+            </div>
+            <div class="h-7 w-[2px] bg-slate-700"></div>
+            <!-- Nomor Soal -->
+            <div class="flex items-center gap-2">
+                <i data-lucide="help-circle" class="w-6 h-6 text-cyan-400"></i>
+                <span class="text-sm sm:text-lg text-slate-200">Soal: <strong id="question-counter" class="text-white text-lg sm:text-2xl">1/10</strong></span>
+            </div>
+            <div class="h-7 w-[2px] bg-slate-700"></div>
+            <!-- Skor -->
+            <div class="flex items-center gap-2">
+                <i data-lucide="star" class="w-6 h-6 sm:w-7 sm:h-7 text-amber-400 fill-amber-400"></i>
+                <span class="text-sm sm:text-lg text-slate-200">Skor: <strong id="score-display" class="text-amber-300 text-xl sm:text-3xl font-extrabold">0</strong></span>
+            </div>
+        </div>
+
+        <!-- Pengaturan Kontrol Guru & Layar Penuh PID -->
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Toggle Lanjut Otomatis (Hands-free untuk kamera PID) -->
+            <button id="btn-auto-next" onclick="toggleAutoNext()" class="flex items-center gap-2 bg-emerald-600/30 hover:bg-emerald-600/50 border-2 border-emerald-400/50 text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-2xl transition active:scale-95" title="Otomatis lanjut soal berikutnya tanpa perlu menyentuh papan">
+                <i data-lucide="fast-forward" class="w-5 h-5 text-emerald-300"></i>
+                <span id="auto-next-text" class="hidden lg:inline">Lanjut Otomatis: ON</span>
+            </button>
+
+            <!-- Toggle Mode Sentuh / Kamera -->
+            <button id="btn-toggle-sensor" onclick="toggleSensorMode()" class="flex items-center gap-2 bg-indigo-600/40 hover:bg-indigo-600/70 border-2 border-indigo-400/50 text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-2xl transition active:scale-95" title="Matikan/Nyalakan Sensor Gerak">
+                <i data-lucide="hand" class="w-5 h-5 text-amber-300"></i>
+                <span id="sensor-status-text" class="hidden md:inline">Sensor: Aktif</span>
+            </button>
+
+            <!-- Toggle Suara -->
+            <button id="btn-sound" onclick="toggleSound()" class="p-2.5 sm:p-3 bg-slate-800 hover:bg-slate-700 border-2 border-slate-600 rounded-2xl transition active:scale-95" title="Suara Efek Kelas">
+                <i id="icon-sound" data-lucide="volume-2" class="w-6 h-6 text-emerald-400"></i>
+            </button>
+
+            <!-- Tombol Layar Penuh (Wajib untuk PID) -->
+            <button id="btn-fullscreen" onclick="toggleFullScreen()" class="p-2.5 sm:p-3 bg-amber-500/20 hover:bg-amber-500/40 border-2 border-amber-400/60 rounded-2xl transition active:scale-95" title="Layar Penuh Papan Interaktif">
+                <i id="icon-fullscreen" data-lucide="maximize" class="w-6 h-6 text-amber-300"></i>
+            </button>
+
+            <!-- Tombol Keluar ke Menu (Saat bermain) -->
+            <button id="btn-home" onclick="returnToMenu()" class="hidden p-2.5 sm:p-3 bg-rose-600 hover:bg-rose-500 border-2 border-rose-400 rounded-2xl transition active:scale-95" title="Kembali ke Menu Utama">
+                <i data-lucide="home" class="w-6 h-6 text-white"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- AREA UTAMA (FULLSCREEN FLEXIBLE) -->
+    <main class="flex-1 w-full max-w-[1920px] mx-auto my-2 flex flex-col items-center justify-center relative overflow-y-auto lg:overflow-hidden">
+
+        <!-- 1. LAYAR MENU UTAMA (OPTIMAL UNTUK SENTUHAN JARI DI PAPAN INTERAKTIF) -->
+        <section id="screen-menu" class="w-full h-full max-h-[820px] bg-slate-900/90 backdrop-blur-xl border-2 border-indigo-500/40 rounded-3xl p-5 sm:p-8 shadow-2xl flex flex-col lg:flex-row gap-6 sm:gap-8 items-center justify-between overflow-y-auto">
+            <!-- Kiri: Penjelasan & Pilihan Mapel -->
+            <div class="flex-1 space-y-5 text-center lg:text-left w-full">
+                <div class="inline-flex items-center gap-2.5 bg-indigo-500/25 border border-indigo-400/40 text-indigo-200 px-4 py-1.5 rounded-full text-sm sm:text-base font-semibold">
+                    <span class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+                    Siap Digunakan di Papan Interaktif Digital (PID) Kelas!
+                </div>
+
+                <h2 class="text-2xl sm:text-4xl xl:text-5xl font-extrabold leading-tight text-white">
+                    Belajar Seru di Depan Kelas dengan <span class="text-amber-400 underline decoration-wavy decoration-amber-500/60">Gerakan Tubuh!</span>
+                </h2>
+
+                <!-- Pilihan Mata Pelajaran dengan Target Sentuh Besar -->
+                <div class="space-y-2.5">
+                    <label class="block text-sm sm:text-base font-bold uppercase tracking-wider text-indigo-300">
+                        1. Sentuh Mata Pelajaran (Kelas 4, 5 & 6 SD):
+                    </label>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4" id="category-buttons">
+                        <button onclick="selectCategory('CAMPURAN')" data-cat="CAMPURAN" class="cat-btn active-cat flex flex-col items-center justify-center p-4 rounded-3xl border-4 border-amber-400 bg-amber-500/20 text-white transition transform active:scale-95 shadow-lg">
+                            <span class="text-3xl sm:text-4xl mb-1.5">🌟</span>
+                            <span class="font-extrabold text-base sm:text-lg">Semua Mapel</span>
+                            <span class="text-xs text-amber-200">Campuran Seru</span>
+                        </button>
+                        <button onclick="selectCategory('MATEMATIKA')" data-cat="MATEMATIKA" class="cat-btn flex flex-col items-center justify-center p-4 rounded-3xl border-4 border-slate-700 bg-slate-800/80 text-slate-300 hover:border-indigo-400 transition transform active:scale-95">
+                            <span class="text-3xl sm:text-4xl mb-1.5">📐</span>
+                            <span class="font-extrabold text-base sm:text-lg">Matematika</span>
+                            <span class="text-xs text-slate-400">Hitung & Bangun</span>
+                        </button>
+                        <button onclick="selectCategory('IPA')" data-cat="IPA" class="cat-btn flex flex-col items-center justify-center p-4 rounded-3xl border-4 border-slate-700 bg-slate-800/80 text-slate-300 hover:border-indigo-400 transition transform active:scale-95">
+                            <span class="text-3xl sm:text-4xl mb-1.5">🔬</span>
+                            <span class="font-extrabold text-base sm:text-lg">Sains (IPA)</span>
+                            <span class="text-xs text-slate-400">Alam & Tubuh</span>
+                        </button>
+                        <button onclick="selectCategory('IPS')" data-cat="IPS" class="cat-btn flex flex-col items-center justify-center p-4 rounded-3xl border-4 border-slate-700 bg-slate-800/80 text-slate-300 hover:border-indigo-400 transition transform active:scale-95">
+                            <span class="text-3xl sm:text-4xl mb-1.5">🌏</span>
+                            <span class="font-extrabold text-base sm:text-lg">IPS & PPKn</span>
+                            <span class="text-xs text-slate-400">Indonesia & Dunia</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pilihan Mode Kelas & Sensitivitas Kamera PID -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <!-- Mode Giliran Kelas -->
+                    <div class="bg-slate-800/90 border-2 border-slate-700 rounded-2xl p-4 flex items-center justify-between gap-3">
+                        <div class="text-left">
+                            <div class="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
+                                <i data-lucide="users" class="w-5 h-5 text-amber-400"></i>
+                                Mode Giliran Siswa
+                            </div>
+                            <div class="text-xs text-slate-400">Panggil siswa bergantian tiap soal</div>
+                        </div>
+                        <button id="btn-relay-mode" onclick="toggleRelayMode()" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-indigo-500/30 border-2 border-indigo-400 text-indigo-200 transition active:scale-95">
+                            Estafet Kelas: ON
+                        </button>
+                    </div>
+
+                    <!-- Pengaturan Sensitivitas Sensor -->
+                    <div class="bg-slate-800/90 border-2 border-slate-700 rounded-2xl p-4 flex flex-col justify-center gap-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
+                                <i data-lucide="sliders" class="w-5 h-5 text-cyan-400"></i>
+                                Sensitivitas Kamera PID
+                            </span>
+                            <span class="text-xs text-amber-300 font-semibold">Jarak 1.5 - 3 Meter</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-slate-400">Dekat</span>
+                            <input id="sensitivity-slider" type="range" min="15" max="65" value="42" class="w-full h-3 accent-amber-400 cursor-pointer">
+                            <span class="text-xs text-slate-400">Jauh</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tombol Mulai Raksasa (Mudah dijangkau siswa SD) -->
+                <div class="pt-1 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                    <button onclick="startGame()" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 font-extrabold text-xl sm:text-2xl px-10 py-5 rounded-3xl shadow-xl shadow-amber-500/25 transform active:scale-95 transition">
+                        <i data-lucide="play" class="w-7 h-7 fill-slate-950"></i>
+                        Mulai Kuis di Papan Interaktif!
+                    </button>
+                </div>
+            </div>
+
+            <!-- Kanan: Panduan Visual Penggunaan di Papan Interaktif Digital -->
+            <div class="w-full lg:w-96 bg-gradient-to-b from-indigo-950 to-slate-900 border-2 border-indigo-500/40 rounded-3xl p-6 flex flex-col items-center text-center space-y-4 shadow-inner shrink-0">
+                <div class="w-16 h-16 rounded-2xl bg-indigo-500/20 border-2 border-indigo-400/40 flex items-center justify-center text-4xl animate-float">
+                    🏫
+                </div>
+                <h3 class="font-extrabold text-xl text-amber-300">Panduan Guru & Siswa di PID</h3>
+                <ul class="text-sm text-slate-200 space-y-3 text-left w-full">
+                    <li class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-slate-700">
+                        <span class="bg-amber-400 text-slate-950 font-extrabold w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5">1</span>
+                        <span>Siswa berdiri sekitar <strong>1,5 hingga 2,5 meter</strong> di depan Papan Interaktif Digital (PID).</span>
+                    </li>
+                    <li class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-slate-700">
+                        <span class="bg-amber-400 text-slate-950 font-extrabold w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5">2</span>
+                        <span><strong>Rentangkan & lambaikan tangan</strong> ke arah kotak <strong>A (Kiri)</strong> atau <strong>B (Kanan)</strong> hingga penuh 100%.</span>
+                    </li>
+                    <li class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-slate-700">
+                        <span class="bg-emerald-400 text-slate-950 font-extrabold w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5">3</span>
+                        <span><strong>Lanjut Otomatis:</strong> Siswa tidak perlu maju menyentuh papan untuk pindah soal karena soal berganti otomatis!</span>
+                    </li>
+                    <li class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-slate-700">
+                        <span class="bg-cyan-400 text-slate-950 font-extrabold w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5">👆</span>
+                        <span><strong>Mode Sentuh Langsung:</strong> Siswa juga bisa langsung menyentuh kotak jawaban di bagian bawah papan PID.</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 2. LAYAR ARENA BERMAIN (OPTIMAL LAYAR LEBAR PID 16:9) -->
+        <section id="screen-game" class="hidden w-full h-full flex-col gap-3 justify-between overflow-hidden">
+            
+            <!-- Papan Pertanyaan Ukuran Raksasa (Terbaca dari kursi belakang kelas) -->
+            <div class="w-full bg-slate-900/95 backdrop-blur-md border-2 border-indigo-400/60 rounded-3xl p-4 sm:px-8 sm:py-5 shadow-2xl relative shrink-0">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                    <div class="flex items-center gap-2">
+                        <span id="question-badge" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold uppercase tracking-wider px-3.5 py-1 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-400/50">
+                            📐 Matematika • Kelas 4-6
+                        </span>
+                        <span id="turn-announcement" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                            🙋 Giliran: Siswa 1
+                        </span>
+                    </div>
+                    <span id="camera-hint-badge" class="text-xs sm:text-sm font-semibold text-amber-300 flex items-center gap-1.5">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        Lambaikan tangan pada kotak A atau B (atau sentuh layar PID)!
+                    </span>
+                </div>
+                <h2 id="question-text" class="text-xl sm:text-3xl lg:text-4xl font-extrabold text-white text-center py-1 leading-snug tracking-tight">
+                    Memuat pertanyaan...
+                </h2>
+            </div>
+
+            <!-- Kontainer Kamera & Zona Gerak (Mengisi sisa ruang layar PID secara penuh) -->
+            <div class="relative flex-1 w-full bg-slate-950 rounded-3xl overflow-hidden border-2 border-indigo-500/50 shadow-2xl flex items-center justify-center min-h-0">
+                
+                <!-- Elemen Video Kamera (Mirror) -->
+                <video id="webcam-video" autoplay playsinline muted class="w-full h-full object-cover mirror-feed opacity-85"></video>
+
+                <!-- Canvas Visualisasi Sensor Gerak (Menampilkan kilauan piksel yang bergerak) -->
+                <canvas id="motion-overlay-canvas" class="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-65"></canvas>
+
+                <!-- Fallback Background jika Kamera Tidak Aktif / Ditolak -->
+                <div id="no-camera-bg" class="hidden absolute inset-0 bg-gradient-to-br from-indigo-950 via-slate-900 to-violet-950 flex-col items-center justify-end pb-6 pointer-events-none">
+                    <div class="text-amber-300 text-sm sm:text-base font-semibold bg-slate-900/90 px-5 py-2 rounded-full border border-amber-400/40 shadow-lg">
+                        👆 Mode Sentuh Papan Interaktif Aktif (Kamera tidak terdeteksi)
+                    </div>
+                </div>
+
+                <!-- Garis Pembatas Tengah & Siluet Pemandu Posisi Anak -->
+                <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-between p-4">
+                    <div class="text-xs sm:text-sm font-semibold bg-slate-900/80 text-slate-200 px-4 py-1.5 rounded-full border border-white/15 backdrop-blur-sm">
+                        Berdiri di tengah depan papan PID 👋
+                    </div>
+                    <!-- Siluet Kepala & Bahu -->
+                    <div class="w-44 h-36 sm:w-64 sm:h-48 border-2 border-dashed border-white/25 rounded-t-full flex items-center justify-center">
+                        <span class="text-xs sm:text-sm text-white/30 font-semibold">Area Berdiri Siswa</span>
+                    </div>
+                </div>
+
+                <!-- ZONA TARGET JAWABAN KIRI (A) & KANAN (B)
+                     Ditempatkan agak ke tengah-bawah agar ramah tinggi badan siswa SD saat menyentuh papan PID -->
+                <div class="absolute inset-0 grid grid-cols-2 gap-6 sm:gap-16 p-4 sm:p-8 items-end sm:items-center">
+                    
+                    <!-- ZONA KIRI: PILIHAN A -->
+                    <div id="zone-left" onclick="handleManualClick(0)" class="group relative h-[85%] max-h-[420px] w-full sm:w-11/12 justify-self-start bg-gradient-to-br from-cyan-500/35 to-blue-700/40 hover:from-cyan-500/50 hover:to-blue-600/50 backdrop-blur-md border-4 border-cyan-300 rounded-3xl p-5 sm:p-7 flex flex-col justify-between cursor-pointer transition-all duration-200 select-none overflow-hidden shadow-2xl active:scale-95">
+                        
+                        <!-- Bar Pengisian Gerakan (Bawah ke Atas) -->
+                        <div id="fill-left" class="absolute bottom-0 left-0 right-0 bg-cyan-400/45 transition-all duration-75 pointer-events-none" style="height: 0%;"></div>
+
+                        <!-- Header Kotak A -->
+                        <div class="relative z-10 flex items-center justify-between">
+                            <span class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-cyan-400 text-slate-950 font-extrabold text-2xl sm:text-4xl flex items-center justify-center shadow-lg">
+                                A
+                            </span>
+                            <div class="flex items-center gap-2 bg-slate-950/75 px-3.5 py-1.5 rounded-full text-cyan-200 text-sm sm:text-base font-bold border border-cyan-400/30">
+                                <i data-lucide="hand" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                                <span id="percent-left">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Teks Jawaban A Ukuran Besar -->
+                        <div class="relative z-10 my-auto py-3 text-center">
+                            <p id="answer-text-0" class="text-xl sm:text-3xl lg:text-5xl font-extrabold text-white drop-shadow-[0_4px_6px_rgba(0,0,0,0.9)] leading-tight">
+                                Pilihan A
+                            </p>
+                        </div>
+
+                        <!-- Instruksi Bawah (Ramah Jangkauan Tangan Anak) -->
+                        <div class="relative z-10 w-full bg-slate-950/75 rounded-2xl p-2.5 text-center border border-cyan-400/30">
+                            <div class="text-xs sm:text-base text-cyan-200 font-bold">
+                                👋 Lambaikan Tangan Kiri / Sentuh Kotak A
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ZONA KANAN: PILIHAN B -->
+                    <div id="zone-right" onclick="handleManualClick(1)" class="group relative h-[85%] max-h-[420px] w-full sm:w-11/12 justify-self-end bg-gradient-to-br from-amber-500/35 to-orange-700/40 hover:from-amber-500/50 hover:to-orange-600/50 backdrop-blur-md border-4 border-amber-300 rounded-3xl p-5 sm:p-7 flex flex-col justify-between cursor-pointer transition-all duration-200 select-none overflow-hidden shadow-2xl active:scale-95">
+                        
+                        <!-- Bar Pengisian Gerakan (Bawah ke Atas) -->
+                        <div id="fill-right" class="absolute bottom-0 left-0 right-0 bg-amber-400/45 transition-all duration-75 pointer-events-none" style="height: 0%;"></div>
+
+                        <!-- Header Kotak B -->
+                        <div class="relative z-10 flex items-center justify-between">
+                            <div class="flex items-center gap-2 bg-slate-950/75 px-3.5 py-1.5 rounded-full text-amber-200 text-sm sm:text-base font-bold border border-amber-400/30">
+                                <span id="percent-right">0%</span>
+                                <i data-lucide="hand" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                            </div>
+                            <span class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-amber-400 text-slate-950 font-extrabold text-2xl sm:text-4xl flex items-center justify-center shadow-lg">
+                                B
+                            </span>
+                        </div>
+
+                        <!-- Teks Jawaban B Ukuran Besar -->
+                        <div class="relative z-10 my-auto py-3 text-center">
+                            <p id="answer-text-1" class="text-xl sm:text-3xl lg:text-5xl font-extrabold text-white drop-shadow-[0_4px_6px_rgba(0,0,0,0.9)] leading-tight">
+                                Pilihan B
+                            </p>
+                        </div>
+
+                        <!-- Instruksi Bawah (Ramah Jangkauan Tangan Anak) -->
+                        <div class="relative z-10 w-full bg-slate-950/75 rounded-2xl p-2.5 text-center border border-amber-400/30">
+                            <div class="text-xs sm:text-base text-amber-200 font-bold">
+                                👋 Lambaikan Tangan Kanan / Sentuh Kotak B
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- MODAL UMPAN BALIK JAWABAN (BENAR / SALAH + HITUNG MUNDUR OTOMATIS PID) -->
+                <div id="feedback-overlay" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md z-30 flex items-center justify-center p-4">
+                    <div class="bg-slate-900 border-4 border-indigo-400/60 rounded-3xl max-w-2xl w-full p-6 sm:p-8 text-center space-y-5 shadow-2xl transform transition-all">
+                        <div id="feedback-icon" class="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-5xl shadow-lg">
+                            🎉
+                        </div>
+                        <h3 id="feedback-title" class="text-2xl sm:text-4xl font-extrabold text-emerald-400">
+                            Hebat! Jawabanmu Benar!
+                        </h3>
+                        <div class="bg-slate-800/95 border-2 border-slate-700 rounded-2xl p-5 text-left space-y-2">
+                            <div class="text-sm font-extrabold uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                                <i data-lucide="book-open" class="w-5 h-5"></i>
+                                Pembahasan Kelas (Tahukah Kamu?)
+                            </div>
+                            <p id="feedback-explanation" class="text-base sm:text-xl text-slate-100 leading-relaxed font-medium">
+                                Penjelasan jawaban akan tampil di sini.
+                            </p>
+                        </div>
+
+                        <!-- Bar Hitung Mundur Lanjut Otomatis (Sangat membantu di PID agar siswa tidak perlu bolak-balik menyentuh layar) -->
+                        <div id="auto-next-container" class="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700">
+                            <div id="auto-next-bar" class="bg-gradient-to-r from-emerald-400 to-cyan-400 h-full transition-all duration-100" style="width: 100%;"></div>
+                        </div>
+
+                        <div class="pt-1 flex flex-col sm:flex-row items-center justify-center gap-3">
+                            <button onclick="nextQuestion()" class="w-full py-4 px-8 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-slate-950 font-extrabold text-lg sm:text-xl shadow-lg transition active:scale-95">
+                                <span id="next-btn-label">Lanjut Soal Berikutnya ➔</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 3. LAYAR HASIL AKHIR (SELESAI / GAME OVER) -->
+        <section id="screen-result" class="hidden w-full max-w-3xl bg-slate-900/95 backdrop-blur-xl border-4 border-amber-400/60 rounded-3xl p-6 sm:p-10 text-center space-y-6 shadow-2xl">
+            <div id="result-badge-icon" class="w-24 h-24 mx-auto bg-amber-400/20 border-4 border-amber-400 rounded-3xl flex items-center justify-center text-6xl animate-bounce">
+                🏆
+            </div>
+
+            <div class="space-y-2">
+                <h2 id="result-title" class="text-3xl sm:text-5xl font-extrabold text-white">
+                    Luar Biasa, Kelas Hebat!
+                </h2>
+                <p id="result-subtitle" class="text-slate-300 text-base sm:text-xl">
+                    Kalian telah menyelesaikan kuis interaktif di Papan Interaktif Digital!
+                </p>
+            </div>
+
+            <!-- Kotak Ringkasan Skor -->
+            <div class="grid grid-cols-3 gap-4 bg-slate-800/90 p-5 rounded-3xl border-2 border-slate-700">
+                <div class="p-2">
+                    <div class="text-xs sm:text-sm font-semibold text-slate-400">Total Skor Kelas</div>
+                    <div id="final-score" class="text-3xl sm:text-5xl font-extrabold text-amber-400 mt-1">0</div>
+                </div>
+                <div class="p-2 border-x-2 border-slate-700">
+                    <div class="text-xs sm:text-sm font-semibold text-slate-400">Jawaban Benar</div>
+                    <div id="final-correct" class="text-3xl sm:text-5xl font-extrabold text-emerald-400 mt-1">0/10</div>
+                </div>
+                <div class="p-2">
+                    <div class="text-xs sm:text-sm font-semibold text-slate-400">Predikat</div>
+                    <div id="final-rank" class="text-lg sm:text-2xl font-extrabold text-cyan-300 mt-2">Bintang Kelas</div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center pt-2">
+                <button onclick="startGame()" class="flex-1 py-5 px-8 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-extrabold text-lg sm:text-xl shadow-lg flex items-center justify-center gap-2 transition active:scale-95">
+                    <i data-lucide="rotate-ccw" class="w-6 h-6"></i>
+                    Main Lagi Bersama Kelas
+                </button>
+                <button onclick="returnToMenu()" class="py-5 px-8 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-lg sm:text-xl border-2 border-slate-600 flex items-center justify-center gap-2 transition active:scale-95">
+                    <i data-lucide="list" class="w-6 h-6"></i>
+                    Ganti Mata Pelajaran
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Canvas Tersembunyi untuk Pemrosesan Perbedaan Piksel (Motion Detection) -->
+    <canvas id="hidden-proc-canvas" width="160" height="120" class="hidden"></canvas>
+
+    <!-- FOOTER BAR BAWAH (PENUNJUK STATUS KAMERA & MODE PID) -->
+    <footer class="w-full max-w-[1920px] mx-auto text-center text-xs sm:text-sm text-slate-400 py-1 px-2 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
+        <span>✨ Dioptimalkan untuk Layar Papan Interaktif Digital (PID / Interactive Flat Panel) • SD Kelas 4, 5 & 6</span>
+        <span id="cam-status-footer" class="text-indigo-300 font-semibold">Status Kamera PID: Siap Diaktifkan</span>
+    </footer>
+
+    <!-- LOGIKA JAVASCRIPT GAME & SENSOR GERAK KAMERA -->
+    <script>
+        // ==========================================
+        // 1. BANK SOAL EDUKASI SD KELAS 4 - 6
+        // ==========================================
+        const QUESTION_BANK = [
+            // MATEMATIKA KELAS 4-6
+            {
+                category: 'MATEMATIKA',
+                grade: 'Kelas 4',
+                question: 'Sebuah persegi memiliki panjang sisi 9 cm. Berapakah luas persegi tersebut?',
+                options: ['81 cm²', '36 cm²'],
+                correct: 0,
+                explanation: 'Rumus luas persegi adalah Sisi × Sisi. Jadi, 9 cm × 9 cm = 81 cm².'
+            },
+            {
+                category: 'MATEMATIKA',
+                grade: 'Kelas 4',
+                question: 'Bentuk pecahan paling sederhana dari 15/20 adalah...',
+                options: ['3/4', '4/5'],
+                correct: 0,
+                explanation: 'Pembilang dan penyebut sama-sama dibagi 5: (15 ÷ 5) / (20 ÷ 5) = 3/4.'
+            },
+            {
+                category: 'MATEMATIKA',
+                grade: 'Kelas 5',
+                question: 'Sebuah kubus memiliki panjang rusuk 5 cm. Berapakah volume kubus tersebut?',
+                options: ['25 cm³', '125 cm³'],
+                correct: 1,
+                explanation: 'Volume kubus adalah Rusuk × Rusuk × Rusuk = 5 × 5 × 5 = 125 cm³.'
+            },
+            {
+                category: 'MATEMATIKA',
+                grade: 'Kelas 5',
+                question: 'Hasil dari 2,5 + 1,75 adalah...',
+                options: ['4,25', '3,80'],
+                correct: 0,
+                explanation: 'Sejajarkan tanda koma desimal: 2,50 + 1,75 = 4,25.'
+            },
+            {
+                category: 'MATEMATIKA',
+                grade: 'Kelas 6',
+                question: 'Berapakah hasil dari operasi bilangan bulat: (-12) + 20 ?',
+                options: ['8', '-8'],
+                correct: 0,
+                explanation: 'Utang 12 dibayar 20, maka sisanya adalah positif 8.'
+            },
+            {
+                category: 'MATEMATIKA',
+                grade: 'Kelas 6',
+                question: 'Jika jari-jari sebuah roda adalah 14 cm, maka panjang diameternya adalah...',
+                options: ['28 cm', '7 cm'],
+                correct: 0,
+                explanation: 'Diameter lingkaran selalu 2 kali panjang jari-jari (2 × 14 cm = 28 cm).'
+            },
+            {
+                category: 'MATEMATIKA',
+                grade: 'Kelas 5',
+                question: 'FPB (Faktor Persekutuan Terbesar) dari 12 dan 18 adalah...',
+                options: ['6', '36'],
+                correct: 0,
+                explanation: 'Angka terbesar yang dapat membagi habis 12 dan 18 adalah 6 (sedangkan 36 adalah KPK-nya).'
+            },
+
+            // SAINS / IPA KELAS 4-6
+            {
+                category: 'IPA',
+                grade: 'Kelas 4',
+                question: 'Proses tumbuhan hijau memasak makanannya sendiri dengan bantuan cahaya matahari disebut...',
+                options: ['Fotosintesis', 'Metamorfosis'],
+                correct: 0,
+                explanation: 'Fotosintesis dilakukan oleh tumbuhan berklorofil menggunakan air, karbondioksida, dan cahaya matahari.'
+            },
+            {
+                category: 'IPA',
+                grade: 'Kelas 4',
+                question: 'Perubahan wujud benda dari benda CAIR menjadi GAS (seperti air mendidih) disebut...',
+                options: ['Mencair', 'Menguap'],
+                correct: 1,
+                explanation: 'Menguap adalah perubahan wujud dari cair menjadi gas karena menerima kalor/panas.'
+            },
+            {
+                category: 'IPA',
+                grade: 'Kelas 5',
+                question: 'Organ pernapasan utama pada manusia tempat pertukaran oksigen dan karbondioksida adalah...',
+                options: ['Paru-paru (Alveolus)', 'Lambung'],
+                correct: 0,
+                explanation: 'Di dalam paru-paru terdapat gelembung halus bernama Alveolus sebagai tempat pertukaran gas.'
+            },
+            {
+                category: 'IPA',
+                grade: 'Kelas 5',
+                question: 'Benda yang dapat menghantarkan panas dengan sangat baik seperti besi dan aluminium disebut...',
+                options: ['Konduktor', 'Isolator'],
+                correct: 0,
+                explanation: 'Konduktor adalah penghantar panas yang baik, sedangkan isolator (kayu, plastik) penghantar yang buruk.'
+            },
+            {
+                category: 'IPA',
+                grade: 'Kelas 6',
+                question: 'Planet terbesar di dalam Tata Surya kita adalah planet...',
+                options: ['Jupiter', 'Mars'],
+                correct: 0,
+                explanation: 'Jupiter merupakan planet raksasa gas dan menjadi planet terbesar di Tata Surya.'
+            },
+            {
+                category: 'IPA',
+                grade: 'Kelas 6',
+                question: 'Tumbuhan kaktus memiliki daun berbentuk duri yang bertujuan untuk...',
+                options: ['Mengurangi penguapan air', 'Menarik serangga'],
+                correct: 0,
+                explanation: 'Karena hidup di gurun yang kering, kaktus mengubah daunnya menjadi duri agar tidak cepat kehilangan air.'
+            },
+            {
+                category: 'IPA',
+                grade: 'Kelas 4',
+                question: 'Kupu-kupu mengalami metamorfosis sempurna. Urutan setelah telur menetas adalah...',
+                options: ['Ulat (Larva)', 'Kepompong (Pupa)'],
+                correct: 0,
+                explanation: 'Urutan metamorfosis kupu-kupu: Telur ➔ Ulat (Larva) ➔ Kepompong (Pupa) ➔ Kupu-kupu.'
+            },
+
+            // IPS & PPKn KELAS 4-6
+            {
+                category: 'IPS',
+                grade: 'Kelas 4',
+                question: 'Candi Borobudur yang megah terletak di Provinsi...',
+                options: ['Jawa Tengah', 'Jawa Timur'],
+                correct: 0,
+                explanation: 'Candi Borobudur terletak di Kabupaten Magelang, Provinsi Jawa Tengah.'
+            },
+            {
+                category: 'IPS',
+                grade: 'Kelas 5',
+                question: 'Indonesia terletak di antara dua benua, yaitu Benua Asia dan Benua...',
+                options: ['Benua Australia', 'Benua Eropa'],
+                correct: 0,
+                explanation: 'Letak geografis Indonesia berada di antara Benua Asia dan Australia, serta Samudra Hindia dan Pasifik.'
+            },
+            {
+                category: 'IPS',
+                grade: 'Kelas 5',
+                question: 'Siapakah tokoh Proklamator yang membacakan teks Proklamasi Kemerdekaan Indonesia pada 17 Agustus 1945?',
+                options: ['Ir. Soekarno', 'Jenderal Soedirman'],
+                correct: 0,
+                explanation: 'Ir. Soekarno didampingi Drs. Moh. Hatta membacakan teks Proklamasi Kemerdekaan RI.'
+            },
+            {
+                category: 'IPS',
+                grade: 'Kelas 6',
+                question: 'Organisasi kerja sama negara-negara di kawasan Asia Tenggara disebut...',
+                options: ['ASEAN', 'WHO'],
+                correct: 0,
+                explanation: 'ASEAN (Association of Southeast Asian Nations) didirikan pada 8 Agustus 1967 di Bangkok.'
+            },
+            {
+                category: 'IPS',
+                grade: 'Kelas 4',
+                question: 'Rumah adat "Gadang" yang atapnya berbentuk seperti tanduk kerbau berasal dari provinsi...',
+                options: ['Sumatera Barat', 'Papua'],
+                correct: 0,
+                explanation: 'Rumah Gadang adalah rumah adat suku Minangkabau di Sumatera Barat.'
+            },
+            {
+                category: 'IPS',
+                grade: 'Kelas 6',
+                question: 'Lambang sila ke-3 Pancasila "Persatuan Indonesia" adalah...',
+                options: ['Pohon Beringin', 'Kepala Banteng'],
+                correct: 0,
+                explanation: 'Pohon Beringin melambangkan sila ke-3, sedangkan Kepala Banteng melambangkan sila ke-4.'
+            }
+        ];
+
+        // ==========================================
+        // 2. STATE PERMAINAN & SENSOR KAMERA
+        // ==========================================
+        let selectedCategory = 'CAMPURAN';
+        let activeQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let correctCount = 0;
+        let lives = 3;
+        let isGameRunning = false;
+        let isQuestionLocked = false; // Mencegah input ganda saat modal muncul
+
+        // Fitur Khusus Papan Interaktif Digital (PID)
+        let isAutoNextEnabled = true; // Otomatis lanjut soal setelah pembahasan tanpa perlu menyentuh layar
+        let isRelayMode = true;       // Mode estafet memanggil nomor urut siswa tiap soal
+        let autoNextTimerId = null;
+        let autoNextIntervalId = null;
+
+        // Sensor Gerak Kamera
+        let webcamStream = null;
+        let isSensorEnabled = true;
+        let isCameraReady = false;
+        let prevFrameData = null;
+        let holdProgressLeft = 0;   // 0 - 100
+        let holdProgressRight = 0;  // 0 - 100
+        let animationFrameId = null;
+
+        // Efek Suara (Tone.js)
+        let soundEnabled = true;
+        let synth = null;
+
+        // ==========================================
+        // 3. INISIALISASI IKON & AUDIO
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+
+        function initAudio() {
+            if (!synth && typeof Tone !== 'undefined') {
+                synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                synth.volume.value = -8;
+            }
+        }
+
+        function playSoundEffect(type) {
+            if (!soundEnabled) return;
+            try {
+                initAudio();
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                const now = Tone.now();
+                if (type === 'hover') {
+                    synth.triggerAttackRelease(['C5'], '32n', now);
+                } else if (type === 'correct') {
+                    synth.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '8n', now);
+                } else if (type === 'wrong') {
+                    synth.triggerAttackRelease(['F3', 'B2'], '4n', now);
+                } else if (type === 'win') {
+                    synth.triggerAttackRelease(['C4', 'E4', 'G4', 'C5'], '8n', now);
+                    synth.triggerAttackRelease(['E4', 'G4', 'C5', 'E5'], '4n', now + 0.2);
+                }
+            } catch (e) {
+                // Abaikan jika browser memblokir audio sebelum klik
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('icon-sound');
+            if (soundEnabled) {
+                icon.setAttribute('data-lucide', 'volume-2');
+                icon.className = 'w-5 h-5 text-emerald-400';
+                playSoundEffect('hover');
+            } else {
+                icon.setAttribute('data-lucide', 'volume-x');
+                icon.className = 'w-5 h-5 text-rose-400';
+            }
+            lucide.createIcons();
+        }
+
+        function toggleSensorMode() {
+            isSensorEnabled = !isSensorEnabled;
+            const statusText = document.getElementById('sensor-status-text');
+            const hintBadge = document.getElementById('camera-hint-badge');
+            if (isSensorEnabled) {
+                statusText.textContent = 'Sensor: Aktif';
+                hintBadge.innerHTML = '<i data-lucide="sparkles" class="w-4 h-4"></i> Lambaikan tangan pada kotak A atau B (atau sentuh layar PID)!';
+            } else {
+                statusText.textContent = 'Mode Sentuh PID';
+                hintBadge.innerHTML = '👆 Sentuh langsung kotak A atau B di Papan Interaktif Digital!';
+                resetZonesProgress();
+            }
+            lucide.createIcons();
+        }
+
+        // Fungsi Layar Penuh (Fullscreen) untuk Papan Interaktif Digital
+        function toggleFullScreen() {
+            playSoundEffect('hover');
+            const icon = document.getElementById('icon-fullscreen');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+                icon.setAttribute('data-lucide', 'minimize');
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                }
+                icon.setAttribute('data-lucide', 'maximize');
+            }
+            lucide.createIcons();
+        }
+
+        // Fungsi Toggle Lanjut Soal Otomatis (Hands-free di depan PID)
+        function toggleAutoNext() {
+            isAutoNextEnabled = !isAutoNextEnabled;
+            playSoundEffect('hover');
+            const textEl = document.getElementById('auto-next-text');
+            const btnEl = document.getElementById('btn-auto-next');
+            if (isAutoNextEnabled) {
+                textEl.textContent = 'Lanjut Otomatis: ON';
+                btnEl.className = 'flex items-center gap-2 bg-emerald-600/30 hover:bg-emerald-600/50 border-2 border-emerald-400/50 text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-2xl transition active:scale-95';
+            } else {
+                textEl.textContent = 'Lanjut Otomatis: OFF';
+                btnEl.className = 'flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border-2 border-slate-600 text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-2xl transition active:scale-95';
+                clearAutoNextTimers();
+            }
+        }
+
+        // Fungsi Toggle Mode Giliran Estafet Siswa
+        function toggleRelayMode() {
+            isRelayMode = !isRelayMode;
+            playSoundEffect('hover');
+            const btn = document.getElementById('btn-relay-mode');
+            if (isRelayMode) {
+                btn.textContent = 'Estafet Kelas: ON';
+                btn.className = 'px-4 py-2.5 rounded-xl font-bold text-sm bg-indigo-500/30 border-2 border-indigo-400 text-indigo-200 transition active:scale-95';
+            } else {
+                btn.textContent = 'Estafet Kelas: OFF';
+                btn.className = 'px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-700 border-2 border-slate-600 text-slate-300 transition active:scale-95';
+            }
+        }
+
+        function clearAutoNextTimers() {
+            if (autoNextTimerId) clearTimeout(autoNextTimerId);
+            if (autoNextIntervalId) clearInterval(autoNextIntervalId);
+            autoNextTimerId = null;
+            autoNextIntervalId = null;
+        }
+
+        // ==========================================
+        // 4. PEMILIHAN MATA PELAJARAN
+        // ==========================================
+        function selectCategory(cat) {
+            selectedCategory = cat;
+            playSoundEffect('hover');
+            const buttons = document.querySelectorAll('.cat-btn');
+            buttons.forEach(btn => {
+                if (btn.getAttribute('data-cat') === cat) {
+                    btn.className = 'cat-btn active-cat flex flex-col items-center justify-center p-4 rounded-3xl border-4 border-amber-400 bg-amber-500/20 text-white transition transform active:scale-95 shadow-lg';
+                } else {
+                    btn.className = 'cat-btn flex flex-col items-center justify-center p-4 rounded-3xl border-4 border-slate-700 bg-slate-800/80 text-slate-300 hover:border-indigo-400 transition transform active:scale-95';
+                }
+            });
+        }
+
+        // ==========================================
+        // 5. AKSES WEBCAM & DETEKSI GERAK (OPTICAL FLOW / FRAME DIFF)
+        // ==========================================
+        async function setupCamera() {
+            const video = document.getElementById('webcam-video');
+            const noCamBg = document.getElementById('no-camera-bg');
+            const footerStatus = document.getElementById('cam-status-footer');
+
+            if (webcamStream && isCameraReady) {
+                return true;
+            }
+
+            try {
+                footerStatus.textContent = 'Status Kamera: Meminta izin kamera...';
+                webcamStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+                video.srcObject = webcamStream;
+                await video.play();
+
+                isCameraReady = true;
+                video.classList.remove('hidden');
+                noCamBg.classList.add('hidden');
+                footerStatus.textContent = 'Status Kamera: Aktif (Sensor Gerak Berjalan)';
+                return true;
+            } catch (err) {
+                // Jika user menolak kamera atau perangkat tidak punya webcam
+                isCameraReady = false;
+                video.classList.add('hidden');
+                noCamBg.classList.remove('hidden');
+                noCamBg.classList.add('flex');
+                footerStatus.textContent = 'Status Kamera: Tidak Tersedia (Gunakan Klik/Sentuhan)';
+                return false;
+            }
+        }
+
+        function processMotionLoop() {
+            if (!isGameRunning) return;
+
+            const video = document.getElementById('webcam-video');
+            const procCanvas = document.getElementById('hidden-proc-canvas');
+            const procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+
+            const overlayCanvas = document.getElementById('motion-overlay-canvas');
+            const overlayCtx = overlayCanvas.getContext('2d');
+
+            if (isCameraReady && isSensorEnabled && !isQuestionLocked && video.readyState === video.HAVE_ENOUGH_DATA) {
+                const w = procCanvas.width;  // 160
+                const h = procCanvas.height; // 120
+
+                if (overlayCanvas.width !== w) {
+                    overlayCanvas.width = w;
+                    overlayCanvas.height = h;
+                }
+
+                // Gambar frame video secara mirror (agar kiri layar = tangan kiri pengguna di bayangan cermin)
+                procCtx.save();
+                procCtx.scale(-1, 1);
+                procCtx.drawImage(video, -w, 0, w, h);
+                procCtx.restore();
+
+                const currentFrame = procCtx.getImageData(0, 0, w, h);
+                const currData = currentFrame.data;
+
+                overlayCtx.clearRect(0, 0, w, h);
+
+                if (prevFrameData) {
+                    let leftMotionPixels = 0;
+                    let rightMotionPixels = 0;
+
+                    // Ambil nilai sensitivitas dari slider (default 35)
+                    const sliderVal = parseInt(document.getElementById('sensitivity-slider').value, 10) || 35;
+                    // Semakin tinggi slider, semakin kecil ambang batas perbedaan warna yang dibutuhkan
+                    const diffThreshold = 85 - sliderVal;
+
+                    // Definisi Area Kotak Kiri (A) dan Kanan (B) dalam koordinat 160x120
+                    // Zona Kiri: X dari 6 sampai 68, Y dari 20 sampai 105
+                    // Zona Kanan: X dari 92 sampai 154, Y dari 20 sampai 105
+                    for (let y = 20; y < 105; y += 2) {
+                        for (let x = 6; x < 154; x += 2) {
+                            // Lewati area tengah tempat kepala/badan diam berada (X: 68 s/d 92)
+                            if (x > 68 && x < 92) continue;
+
+                            const idx = (y * w + x) * 4;
+                            const rDiff = Math.abs(currData[idx] - prevFrameData[idx]);
+                            const gDiff = Math.abs(currData[idx + 1] - prevFrameData[idx + 1]);
+                            const bDiff = Math.abs(currData[idx + 2] - prevFrameData[idx + 2]);
+
+                            const avgDiff = (rDiff + gDiff + bDiff) / 3;
+
+                            if (avgDiff > diffThreshold) {
+                                if (x <= 68) {
+                                    leftMotionPixels++;
+                                    overlayCtx.fillStyle = 'rgba(34, 211, 238, 0.75)'; // Kilau Biru Cyan
+                                    overlayCtx.fillRect(x, y, 2, 2);
+                                } else if (x >= 92) {
+                                    rightMotionPixels++;
+                                    overlayCtx.fillStyle = 'rgba(251, 191, 36, 0.75)'; // Kilau Kuning Amber
+                                    overlayCtx.fillRect(x, y, 2, 2);
+                                }
+                            }
+                        }
+                    }
+
+                    // Hitung apakah gerakan cukup signifikan di salah satu zona
+                    // Dioptimalkan untuk jarak berdiri siswa di depan PID (1.5 - 3 meter)
+                    const activationThreshold = 24;
+
+                    if (leftMotionPixels > activationThreshold && leftMotionPixels > rightMotionPixels * 1.15) {
+                        holdProgressLeft = Math.min(100, holdProgressLeft + 4.8);
+                        holdProgressRight = Math.max(0, holdProgressRight - 3);
+                    } else if (rightMotionPixels > activationThreshold && rightMotionPixels > leftMotionPixels * 1.15) {
+                        holdProgressRight = Math.min(100, holdProgressRight + 4.8);
+                        holdProgressLeft = Math.max(0, holdProgressLeft - 3);
+                    } else {
+                        // Turunkan perlahan jika tidak ada gerakan tangan
+                        holdProgressLeft = Math.max(0, holdProgressLeft - 2.0);
+                        holdProgressRight = Math.max(0, holdProgressRight - 2.0);
+                    }
+
+                    updateZonesUI();
+
+                    // Jika salah satu mencapai 100%, kunci jawaban!
+                    if (holdProgressLeft >= 100) {
+                        submitAnswer(0);
+                    } else if (holdProgressRight >= 100) {
+                        submitAnswer(1);
+                    }
+                }
+
+                // Simpan salinan frame saat ini untuk dibandingkan di frame berikutnya
+                prevFrameData = new Uint8ClampedArray(currData);
+            }
+
+            animationFrameId = requestAnimationFrame(processMotionLoop);
+        }
+
+        function updateZonesUI() {
+            const fillLeft = document.getElementById('fill-left');
+            const fillRight = document.getElementById('fill-right');
+            const pctLeft = document.getElementById('percent-left');
+            const pctRight = document.getElementById('percent-right');
+            const zoneLeft = document.getElementById('zone-left');
+            const zoneRight = document.getElementById('zone-right');
+
+            const lVal = Math.round(holdProgressLeft);
+            const rVal = Math.round(holdProgressRight);
+
+            fillLeft.style.height = `${lVal}%`;
+            fillRight.style.height = `${rVal}%`;
+            pctLeft.textContent = `${lVal}%`;
+            pctRight.textContent = `${rVal}%`;
+
+            if (lVal > 15) {
+                zoneLeft.classList.add('active-zone');
+            } else {
+                zoneLeft.classList.remove('active-zone');
+            }
+
+            if (rVal > 15) {
+                zoneRight.classList.add('active-zone');
+            } else {
+                zoneRight.classList.remove('active-zone');
+            }
+        }
+
+        function resetZonesProgress() {
+            holdProgressLeft = 0;
+            holdProgressRight = 0;
+            prevFrameData = null;
+            updateZonesUI();
+        }
+
+        // ==========================================
+        // 6. ALUR PERMAINAN KUIS
+        // ==========================================
+        function shuffleArray(arr) {
+            const copy = [...arr];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        async function startGame() {
+            playSoundEffect('hover');
+
+            // Filter soal berdasarkan kategori
+            let pool = QUESTION_BANK;
+            if (selectedCategory !== 'CAMPURAN') {
+                pool = QUESTION_BANK.filter(q => q.category === selectedCategory);
+            }
+            activeQuestions = shuffleArray(pool).slice(0, 10);
+
+            currentQuestionIndex = 0;
+            score = 0;
+            correctCount = 0;
+            lives = 3;
+            isGameRunning = true;
+            isQuestionLocked = false;
+
+            // Tampilkan layar game
+            document.getElementById('screen-menu').classList.add('hidden');
+            document.getElementById('screen-result').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+            document.getElementById('screen-game').classList.add('flex');
+
+            document.getElementById('hud-stats').classList.remove('hidden');
+            document.getElementById('hud-stats').classList.add('flex');
+            document.getElementById('btn-home').classList.remove('hidden');
+
+            updateHUD();
+            loadCurrentQuestion();
+
+            // Nyalakan kamera dan mulai sensor gerak
+            await setupCamera();
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            processMotionLoop();
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').textContent = score;
+            document.getElementById('question-counter').textContent = `${currentQuestionIndex + 1}/${activeQuestions.length}`;
+
+            const studentNum = currentQuestionIndex + 1;
+            const turnBadge = document.getElementById('player-turn-badge');
+            const turnAnnounce = document.getElementById('turn-announcement');
+
+            if (isRelayMode) {
+                turnBadge.textContent = `Giliran Siswa ${studentNum}`;
+                turnAnnounce.textContent = `🙋 Giliran Maju: Siswa ke-${studentNum}`;
+                turnAnnounce.classList.remove('hidden');
+            } else {
+                turnBadge.textContent = 'Mode Individu';
+                turnAnnounce.classList.add('hidden');
+            }
+
+            const livesContainer = document.getElementById('lives-container');
+            livesContainer.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const heart = document.createElement('span');
+                heart.className = 'text-lg sm:text-2xl transition-transform';
+                heart.textContent = i < lives ? '❤️' : '🖤';
+                livesContainer.appendChild(heart);
+            }
+        }
+
+        function loadCurrentQuestion() {
+            clearAutoNextTimers();
+            resetZonesProgress();
+            isQuestionLocked = false;
+            document.getElementById('feedback-overlay').classList.add('hidden');
+
+            const q = activeQuestions[currentQuestionIndex];
+            const badgeMap = {
+                'MATEMATIKA': '📐 Matematika',
+                'IPA': '🔬 Sains (IPA)',
+                'IPS': '🌏 IPS & PPKn'
+            };
+
+            document.getElementById('question-badge').textContent = `${badgeMap[q.category] || '🌟 Umum'} • ${q.grade}`;
+            document.getElementById('question-text').textContent = q.question;
+            document.getElementById('answer-text-0').textContent = q.options[0];
+            document.getElementById('answer-text-1').textContent = q.options[1];
+
+            updateHUD();
+        }
+
+        function handleManualClick(optionIndex) {
+            if (!isGameRunning || isQuestionLocked) return;
+            submitAnswer(optionIndex);
+        }
+
+        function submitAnswer(chosenIndex) {
+            if (isQuestionLocked) return;
+            isQuestionLocked = true;
+            clearAutoNextTimers();
+
+            const q = activeQuestions[currentQuestionIndex];
+            const isCorrect = (chosenIndex === q.correct);
+
+            const overlay = document.getElementById('feedback-overlay');
+            const icon = document.getElementById('feedback-icon');
+            const title = document.getElementById('feedback-title');
+            const explanation = document.getElementById('feedback-explanation');
+            const autoBarContainer = document.getElementById('auto-next-container');
+            const autoBar = document.getElementById('auto-next-bar');
+            const nextBtnLabel = document.getElementById('next-btn-label');
+
+            if (isCorrect) {
+                score += 100;
+                correctCount++;
+                playSoundEffect('correct');
+                icon.textContent = '🎉';
+                icon.className = 'w-20 h-20 mx-auto rounded-full bg-emerald-500/20 border-4 border-emerald-400 flex items-center justify-center text-5xl shadow-lg';
+                title.textContent = 'Hebat! Jawabanmu Benar! (+100 Poin)';
+                title.className = 'text-2xl sm:text-4xl font-extrabold text-emerald-400';
+            } else {
+                lives--;
+                playSoundEffect('wrong');
+                icon.textContent = '💡';
+                icon.className = 'w-20 h-20 mx-auto rounded-full bg-rose-500/20 border-4 border-rose-400 flex items-center justify-center text-5xl shadow-lg';
+                title.textContent = `Kurang Tepat! Jawaban: ${q.options[q.correct]}`;
+                title.className = 'text-2xl sm:text-4xl font-extrabold text-rose-400';
+            }
+
+            explanation.textContent = q.explanation;
+            updateHUD();
+            overlay.classList.remove('hidden');
+
+            // Jalankan hitung mundur otomatis khusus PID (5 detik) agar siswa tidak perlu maju menyentuh layar
+            if (isAutoNextEnabled) {
+                autoBarContainer.classList.remove('hidden');
+                let remainingMs = 5500;
+                const totalMs = 5500;
+                autoBar.style.width = '100%';
+
+                autoNextIntervalId = setInterval(() => {
+                    remainingMs -= 100;
+                    const pct = Math.max(0, (remainingMs / totalMs) * 100);
+                    autoBar.style.width = `${pct}%`;
+                    const sec = Math.ceil(remainingMs / 1000);
+                    nextBtnLabel.textContent = `Lanjut Otomatis dalam ${sec} detik... (Sentuh untuk Lewati) ➔`;
+                }, 100);
+
+                autoNextTimerId = setTimeout(() => {
+                    clearAutoNextTimers();
+                    nextQuestion();
+                }, totalMs);
+            } else {
+                autoBarContainer.classList.add('hidden');
+                nextBtnLabel.textContent = 'Sentuh untuk Lanjut Soal Berikutnya ➔';
+            }
+        }
+
+        function nextQuestion() {
+            clearAutoNextTimers();
+            playSoundEffect('hover');
+
+            if (lives <= 0) {
+                endGame(false);
+                return;
+            }
+
+            currentQuestionIndex++;
+            if (currentQuestionIndex >= activeQuestions.length) {
+                endGame(true);
+            } else {
+                loadCurrentQuestion();
+            }
+        }
+
+        function endGame(completedAll) {
+            isGameRunning = false;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+            playSoundEffect('win');
+
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('flex');
+            document.getElementById('screen-result').classList.remove('hidden');
+
+            const badge = document.getElementById('result-badge-icon');
+            const title = document.getElementById('result-title');
+            const subtitle = document.getElementById('result-subtitle');
+            const rankEl = document.getElementById('final-rank');
+
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('final-correct').textContent = `${correctCount}/${activeQuestions.length}`;
+
+            if (completedAll && score >= 800) {
+                badge.textContent = '🏆';
+                title.textContent = 'Luar Biasa, Juara Kelas!';
+                subtitle.textContent = 'Kamu cerdas dan sangat tangkas menggerakkan tubuhmu!';
+                rankEl.textContent = 'Profesor Cilik 🌟';
+            } else if (score >= 500) {
+                badge.textContent = '🎖️';
+                title.textContent = 'Kerja Bagus, Anak Hebat!';
+                subtitle.textContent = 'Terus berlatih agar skormu semakin sempurna!';
+                rankEl.textContent = 'Bintang Pintar ⭐';
+            } else {
+                badge.textContent = '💪';
+                title.textContent = 'Tetap Semangat Belajar!';
+                subtitle.textContent = 'Jangan menyerah, ayo coba lagi dan raih skor lebih tinggi!';
+                rankEl.textContent = 'Pejuang Tangguh 🚀';
+            }
+        }
+
+        function returnToMenu() {
+            clearAutoNextTimers();
+            isGameRunning = false;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('flex');
+            document.getElementById('screen-result').classList.add('hidden');
+            document.getElementById('screen-menu').classList.remove('hidden');
+
+            document.getElementById('hud-stats').classList.add('hidden');
+            document.getElementById('hud-stats').classList.remove('flex');
+            document.getElementById('btn-home').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
