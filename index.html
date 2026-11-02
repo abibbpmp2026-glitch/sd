@@ -218,39 +218,76 @@
                     </div>
                 </div>
 
-                <!-- Tombol Mulai Raksasa (Mudah dijangkau siswa SD) -->
-                <div class="pt-1 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                    <button onclick="startGame()" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 font-extrabold text-xl sm:text-2xl px-10 py-5 rounded-3xl shadow-xl shadow-amber-500/25 transform active:scale-95 transition">
+                <!-- Tombol Mulai & Aktivasi Kamera Raksasa (Mudah dijangkau di PID) -->
+                <div class="pt-1 flex flex-col sm:flex-row gap-3.5 justify-center lg:justify-start items-stretch sm:items-center">
+                    <button onclick="startGame()" class="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 font-extrabold text-xl sm:text-2xl px-8 py-4 rounded-3xl shadow-xl shadow-amber-500/25 transform active:scale-95 transition">
                         <i data-lucide="play" class="w-7 h-7 fill-slate-950"></i>
-                        Mulai Kuis di Papan Interaktif!
+                        Mulai Kuis Sekarang!
+                    </button>
+                    <button onclick="testAndActivateCamera()" id="btn-activate-cam" class="inline-flex items-center justify-center gap-2.5 bg-cyan-500/20 hover:bg-cyan-500/35 border-2 border-cyan-400 text-cyan-200 font-bold text-base sm:text-lg px-6 py-4 rounded-3xl transition active:scale-95">
+                        <i data-lucide="camera" class="w-6 h-6 text-cyan-300"></i>
+                        <span id="btn-activate-cam-text">Aktifkan & Tes Kamera</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Kanan: Panduan Visual Penggunaan di Papan Interaktif Digital -->
-            <div class="w-full lg:w-96 bg-gradient-to-b from-indigo-950 to-slate-900 border-2 border-indigo-500/40 rounded-3xl p-6 flex flex-col items-center text-center space-y-4 shadow-inner shrink-0">
-                <div class="w-16 h-16 rounded-2xl bg-indigo-500/20 border-2 border-indigo-400/40 flex items-center justify-center text-4xl animate-float">
-                    🏫
+            <!-- Kanan: Panel Pratinjau Kamera & Panduan Aktivasi PID -->
+            <div class="w-full lg:w-[420px] bg-gradient-to-b from-indigo-950 to-slate-900 border-2 border-indigo-500/40 rounded-3xl p-5 flex flex-col items-center text-center space-y-3.5 shadow-inner shrink-0">
+                
+                <!-- Layar Kecil Pratinjau Kamera di Menu Utama -->
+                <div class="w-full h-48 bg-slate-950 rounded-2xl border-2 border-indigo-400/40 overflow-hidden relative flex flex-col items-center justify-center">
+                    <video id="menu-preview-video" autoplay playsinline muted class="hidden w-full h-full object-cover mirror-feed"></video>
+                    
+                    <div id="menu-cam-placeholder" class="flex flex-col items-center justify-center p-4 space-y-2">
+                        <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-2xl animate-bounce">
+                            📷
+                        </div>
+                        <p id="menu-cam-status-title" class="text-sm font-bold text-amber-300">Kamera Belum Aktif</p>
+                        <p id="menu-cam-status-desc" class="text-xs text-slate-300 max-w-xs">
+                            Klik tombol <strong>"Aktifkan & Tes Kamera"</strong> lalu pilih <strong>"Allow / Izinkan"</strong> di pojok kiri atas browser.
+                        </p>
+                    </div>
+
+                    <div id="menu-cam-live-badge" class="hidden absolute top-2.5 left-2.5 bg-emerald-600/90 text-white text-xs font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 shadow">
+                        <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                        KAMERA AKTIF
+                    </div>
                 </div>
-                <h3 class="font-extrabold text-xl text-amber-300">Panduan Guru & Siswa di PID</h3>
-                <ul class="text-sm text-slate-200 space-y-3 text-left w-full">
-                    <li class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-slate-700">
-                        <span class="bg-amber-400 text-slate-950 font-extrabold w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5">1</span>
-                        <span>Siswa berdiri sekitar <strong>1,5 hingga 2,5 meter</strong> di depan Papan Interaktif Digital (PID).</span>
-                    </li>
-                    <li class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-slate-700">
-                        <span class="bg-amber-400 text-slate-950 font-extrabold w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5">2</span>
-                        <span><strong>Rentangkan & lambaikan tangan</strong> ke arah kotak <strong>A (Kiri)</strong> atau <strong>B (Kanan)</strong> hingga penuh 100%.</span>
-                    </li>
-                    <li class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-slate-700">
-                        <span class="bg-emerald-400 text-slate-950 font-extrabold w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5">3</span>
-                        <span><strong>Lanjut Otomatis:</strong> Siswa tidak perlu maju menyentuh papan untuk pindah soal karena soal berganti otomatis!</span>
-                    </li>
-                    <li class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-slate-700">
-                        <span class="bg-cyan-400 text-slate-950 font-extrabold w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5">👆</span>
-                        <span><strong>Mode Sentuh Langsung:</strong> Siswa juga bisa langsung menyentuh kotak jawaban di bagian bawah papan PID.</span>
-                    </li>
-                </ul>
+
+                <!-- Pilihan Perangkat Kamera (Muncul jika PID punya lebih dari 1 kamera) -->
+                <div class="w-full text-left space-y-1">
+                    <label class="text-xs font-bold text-indigo-300 flex items-center justify-between">
+                        <span>Pilih Sumber Kamera PID / USB:</span>
+                        <button onclick="refreshCameraList()" class="text-cyan-300 hover:underline text-xs flex items-center gap-1">
+                            🔄 Segarkan
+                        </button>
+                    </label>
+                    <select id="camera-select" onchange="switchCameraDevice(this.value)" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-400">
+                        <option value="">Kamera Default (Otomatis)</option>
+                    </select>
+                </div>
+
+                <!-- Daftar Panduan Mengatasi Kamera Tidak Muncul -->
+                <div class="w-full bg-slate-900/90 border border-slate-700 rounded-2xl p-3.5 text-left space-y-2">
+                    <div class="text-xs font-extrabold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                        <i data-lucide="help-circle" class="w-4 h-4"></i>
+                        Cara Mengaktifkan Kamera:
+                    </div>
+                    <ul class="text-xs text-slate-200 space-y-1.5">
+                        <li class="flex items-start gap-2">
+                            <span class="text-cyan-400 font-bold">1.</span>
+                            <span>Tekan tombol <strong>"Aktifkan & Tes Kamera"</strong>, lalu klik <strong>"Allow" (Izinkan)</strong> saat muncul pesan izin di atas layar.</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-cyan-400 font-bold">2.</span>
+                            <span><strong>Jika dibuka di Preview:</strong> Pastikan tab browser ini sendiri sudah diberi izin kamera (klik ikon 🔒 <em>Gembok / Pengaturan Situs</em> di samping alamat web di atas, lalu ubah <strong>Camera = Allow</strong>).</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-cyan-400 font-bold">3.</span>
+                            <span><strong>Jika dibuka via File HTML di PID:</strong> Buka menggunakan Google Chrome / Edge, pastikan kabel USB Kamera PID terpasang dan tidak sedang dipakai Zoom/Meet.</span>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </section>
 
@@ -289,8 +326,13 @@
 
                 <!-- Fallback Background jika Kamera Tidak Aktif / Ditolak -->
                 <div id="no-camera-bg" class="hidden absolute inset-0 bg-gradient-to-br from-indigo-950 via-slate-900 to-violet-950 flex-col items-center justify-end pb-6 pointer-events-none">
-                    <div class="text-amber-300 text-sm sm:text-base font-semibold bg-slate-900/90 px-5 py-2 rounded-full border border-amber-400/40 shadow-lg">
-                        👆 Mode Sentuh Papan Interaktif Aktif (Kamera tidak terdeteksi)
+                    <div class="pointer-events-auto flex flex-col sm:flex-row items-center gap-3 bg-slate-900/95 px-5 py-2.5 rounded-full border border-amber-400/50 shadow-xl">
+                        <span class="text-amber-300 text-xs sm:text-sm font-semibold">
+                            👆 Mode Sentuh Aktif (Kamera belum diizinkan)
+                        </span>
+                        <button onclick="retryCameraInGame()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs px-3.5 py-1.5 rounded-full transition">
+                            📷 Coba Nyalakan Kamera
+                        </button>
                     </div>
                 </div>
 
@@ -657,6 +699,7 @@
 
         // Sensor Gerak Kamera
         let webcamStream = null;
+        let selectedDeviceId = '';
         let isSensorEnabled = true;
         let isCameraReady = false;
         let prevFrameData = null;
@@ -806,40 +849,147 @@
         // ==========================================
         // 5. AKSES WEBCAM & DETEKSI GERAK (OPTICAL FLOW / FRAME DIFF)
         // ==========================================
+        async function refreshCameraList() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoInputs = devices.filter(d => d.kind === 'videoinput');
+                const selectEl = document.getElementById('camera-select');
+                if (!selectEl) return;
+
+                const currentVal = selectedDeviceId || selectEl.value;
+                selectEl.innerHTML = '<option value="">Kamera Default (Otomatis)</option>';
+
+                videoInputs.forEach((device, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = device.deviceId;
+                    opt.textContent = device.label || `Kamera PID / USB #${idx + 1}`;
+                    selectEl.appendChild(opt);
+                });
+
+                if (currentVal) {
+                    selectEl.value = currentVal;
+                }
+            } catch (e) {
+                // Abaikan jika gagal membaca daftar perangkat
+            }
+        }
+
+        async function switchCameraDevice(deviceId) {
+            selectedDeviceId = deviceId;
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+                isCameraReady = false;
+            }
+            await testAndActivateCamera();
+        }
+
+        async function testAndActivateCamera() {
+            playSoundEffect('hover');
+            const btnText = document.getElementById('btn-activate-cam-text');
+            if (btnText) btnText.textContent = 'Meminta Izin Kamera...';
+
+            const ok = await setupCamera();
+            if (ok) {
+                if (btnText) btnText.textContent = '✅ Kamera Aktif & Siap!';
+                await refreshCameraList();
+            } else {
+                if (btnText) btnText.textContent = '⚠️ Coba Aktifkan Lagi';
+            }
+        }
+
+        async function retryCameraInGame() {
+            playSoundEffect('hover');
+            await setupCamera();
+        }
+
         async function setupCamera() {
             const video = document.getElementById('webcam-video');
+            const menuVideo = document.getElementById('menu-preview-video');
+            const menuPlaceholder = document.getElementById('menu-cam-placeholder');
+            const menuLiveBadge = document.getElementById('menu-cam-live-badge');
+            const menuTitle = document.getElementById('menu-cam-status-title');
+            const menuDesc = document.getElementById('menu-cam-status-desc');
             const noCamBg = document.getElementById('no-camera-bg');
             const footerStatus = document.getElementById('cam-status-footer');
 
             if (webcamStream && isCameraReady) {
+                if (video.srcObject !== webcamStream) {
+                    video.srcObject = webcamStream;
+                    video.play().catch(() => {});
+                }
+                if (menuVideo && menuVideo.srcObject !== webcamStream) {
+                    menuVideo.srcObject = webcamStream;
+                    menuVideo.play().catch(() => {});
+                }
                 return true;
+            }
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                if (menuTitle) menuTitle.textContent = 'Browser Tidak Mendukung Kamera';
+                if (menuDesc) menuDesc.textContent = 'Pastikan Anda membuka di Chrome/Edge versi terbaru melalui HTTPS atau localhost.';
+                footerStatus.textContent = 'Status Kamera: Browser tidak mendukung akses kamera';
+                return false;
             }
 
             try {
                 footerStatus.textContent = 'Status Kamera: Meminta izin kamera...';
+
+                const videoConstraints = {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                };
+
+                if (selectedDeviceId) {
+                    videoConstraints.deviceId = { exact: selectedDeviceId };
+                } else {
+                    videoConstraints.facingMode = 'user';
+                }
+
                 webcamStream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        facingMode: 'user'
-                    },
+                    video: videoConstraints,
                     audio: false
                 });
+
                 video.srcObject = webcamStream;
                 await video.play();
+
+                if (menuVideo) {
+                    menuVideo.srcObject = webcamStream;
+                    await menuVideo.play();
+                    menuVideo.classList.remove('hidden');
+                }
+                if (menuPlaceholder) menuPlaceholder.classList.add('hidden');
+                if (menuLiveBadge) menuLiveBadge.classList.remove('hidden');
 
                 isCameraReady = true;
                 video.classList.remove('hidden');
                 noCamBg.classList.add('hidden');
+                noCamBg.classList.remove('flex');
                 footerStatus.textContent = 'Status Kamera: Aktif (Sensor Gerak Berjalan)';
+
+                await refreshCameraList();
                 return true;
             } catch (err) {
-                // Jika user menolak kamera atau perangkat tidak punya webcam
                 isCameraReady = false;
                 video.classList.add('hidden');
                 noCamBg.classList.remove('hidden');
                 noCamBg.classList.add('flex');
-                footerStatus.textContent = 'Status Kamera: Tidak Tersedia (Gunakan Klik/Sentuhan)';
+
+                if (menuPlaceholder) menuPlaceholder.classList.remove('hidden');
+                if (menuVideo) menuVideo.classList.add('hidden');
+                if (menuLiveBadge) menuLiveBadge.classList.add('hidden');
+
+                if (menuTitle) {
+                    menuTitle.textContent = 'Izin Kamera Ditolak / Kamera Tidak Ditemukan';
+                    menuTitle.className = 'text-sm font-bold text-rose-400';
+                }
+                if (menuDesc) {
+                    menuDesc.innerHTML = 'Klik ikon <strong>🔒 Gembok / Pengaturan Situs</strong> di bilah alamat browser (kiri atas), ubah <strong>Camera menjadi Allow (Izinkan)</strong>, lalu klik tombol Aktifkan lagi.';
+                }
+
+                footerStatus.textContent = 'Status Kamera: Belum Diizinkan (Klik ikon Gembok di atas browser ➔ Izinkan Kamera)';
                 return false;
             }
         }
